@@ -1,0 +1,34 @@
+# .github/workflows/main.yml
+name: Build with NVM
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up NVM and install Node
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+          source "$NVM_DIR/nvm.sh"
+          nvm install
+          nvm use
+          nvm alias default $(cat .nvmrc)
+          echo "nvm installed node version: $(node -v)"
+
+      - name: Build project
+        run: |
+            export NVM_DIR="$HOME/.nvm"
+            source "$NVM_DIR/nvm.sh"
+            nvm use
+            npm ci   # or npm install if you're not using a lockfile
+            npm run build
