@@ -4,13 +4,15 @@ import { Player } from "../player/player";
 import { RoomModel } from "../../model/roomModel";
 import { SlimeEnemy } from "./enemy-types/slimeEnemy";
 import { OrcEnemy } from "./enemy-types/orcEnemy";
+import { ShockwaveEnemy } from "./enemy-types/shockWaveEnemy"
 import { HealingItem } from "../player/itemTypes/healingItem";
 
-type EnemyType = "slime" | "orc"; // Add more types as needed
+type EnemyType = "slime" | "orc" | "shockWave"; // Add more types as needed
 
 const ENEMY_TYPES: EnemyType[] = [
     "slime",
     "orc",
+    "shockWave",
     // Add more types here
 ];
 
@@ -40,23 +42,36 @@ export class EnemyManager {
             let enemy: Enemy;
             let threatLevel = 1;
 
+            // Track if a ShockwaveEnemy has already been chosen for this room
+            let shockwaveSpawned = chosenEnemies.some(e => e instanceof ShockwaveEnemy);
+
             switch (type) {
                 case "slime":
                     enemy = new SlimeEnemy(this._scene, this._player, spawnPos);
                     threatLevel = enemy.threatLevel;
                     break;
 
-                //case "orc":
-                    // enemy = new OrcEnemy(this._scene, this._player, spawnPos);
-                    // threatLevel = enemy.threatLevel;
-                    // break;
+                case "shockWave":
+                    if (remainingThreat > 3) {
+                        enemy = new ShockwaveEnemy(this._scene, this._player, spawnPos);
+                        threatLevel = enemy.threatLevel;
+                        break;
+                    }
+                    continue;
+                case "orc":
+                    if (remainingThreat > 2) {
+                        enemy = new OrcEnemy(this._scene, this._player, spawnPos);
+                        threatLevel = enemy.threatLevel;
+                        break;
+                    }
+                    continue;
                 // Add more cases for other enemy types
                 default:
                     console.warn(`Unknown enemy type: ${type}`);
                     continue;
             }
 
-            if (threatLevel > remainingThreat) continue;
+            // if (threatLevel > remainingThreat) continue;
 
             chosenEnemies.push(enemy);
             remainingThreat -= threatLevel;
@@ -99,8 +114,10 @@ export class EnemyManager {
         const min = bbox.minimumWorld;
         const max = bbox.maximumWorld;
 
-        const x = Math.random() * (max.x - min.x) + min.x;
-        const z = Math.random() * (max.z - min.z) + min.z;
+        // Keep at least 2 units away from each wall
+        const margin = 2;
+        const x = Math.random() * ((max.x - margin) - (min.x + margin)) + (min.x + margin);
+        const z = Math.random() * ((max.z - margin) - (min.z + margin)) + (min.z + margin);
         const y = max.y + 0.5;
 
         console.log(`Spawn enemy at (x=${x.toFixed(2)}, y=${y.toFixed(2)}, z=${z.toFixed(2)})`);
@@ -109,10 +126,11 @@ export class EnemyManager {
 
     private _manualSpawnPosition(room: RoomModel): Vector3 {
         const y = room.position.y + 1;
-        const minX = room.position.x + 1;
-        const maxX = room.position.x + room.size.x - 1;
-        const minZ = room.position.z + 1;
-        const maxZ = room.position.z + room.size.z - 1;
+        const margin = 2;
+        const minX = room.position.x + margin;
+        const maxX = room.position.x + room.size.x - margin;
+        const minZ = room.position.z + margin;
+        const maxZ = room.position.z + room.size.z - margin;
         const x = Math.random() * (maxX - minX) + minX;
         const z = Math.random() * (maxZ - minZ) + minZ;
         return new Vector3(x, y, z);

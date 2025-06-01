@@ -19,10 +19,10 @@ export class Weapon {
 
     private _cooldown;
     // private static readonly BULLET_DAMAGE = 30;
-    private static readonly PISTOL_DAMAGE = 30;
-    private static readonly SHOTGUN_DAMAGE = 15;
-    private static readonly SNIPER_DAMAGE = 100;
-    private static readonly AUTO_DAMAGE = 5;
+    private static readonly basic_DAMAGE = 30;
+    private static readonly burst_DAMAGE = 15;
+    private static readonly focus_DAMAGE = 100;
+    private static readonly rapid_DAMAGE = 10;
 
     constructor(scene: Scene, bulletStyle: string, player: Player) {
         this._scene = scene;
@@ -41,23 +41,32 @@ export class Weapon {
 
     private shoot(weaponType: string): void {
         switch (weaponType) {
-            case "pistol":
-                this._shootPistol();
+            case "basic":
+                this._shootbasic();
                 break;
-            case "shotgun":
-                this._shootShotgun();
-                this._cooldown = 750;
+            case "burst":
+                if (this.player.mana >= 30) {
+                    this.player.mana -= 30;
+                    this._shootburst();
+                    this._cooldown = 750;
+                }
                 break;
-            case "sniper":
-                this._shootSniper();
-                this._cooldown = 1000;
+            case "focus":
+                if (this.player.mana >= 20) {
+                    this.player.mana -= 20;
+                    this._shootfocus();
+                    this._cooldown = 1000;
+                }
                 break;
-            case "auto":
-                this._shootAuto();
-                this._cooldown = 100;
+            case "rapid":
+                if (this.player.mana >= 3) {
+                    this.player.mana -= 3;
+                    this._shootrapid();
+                    this._cooldown = 100;
+                }
                 break;
             default:
-                this._shootPistol(); // fallback
+                this._shootbasic(); // fallback
                 break;
         }
     }
@@ -77,41 +86,75 @@ export class Weapon {
         return this.player.view.camera.getForwardRay().direction;
     }
 
-    /** Pistolet : tir droit, unique */
-    private _shootPistol(): void {
+    /** basicet : tir droit, unique */
+    private _shootbasic(): void {
         const origin = this._getShootOrigin();
         const dir = this._getForwardDirection();
-        new Bullet(this._scene, origin, dir, Weapon.PISTOL_DAMAGE);
+        const bonus = (this.player as any)["weaponDamageBonus"]?.basic || 0;
+        new Bullet(this._scene, origin, dir, Weapon.basic_DAMAGE + bonus);
 
+        // Play basic sound
+        if (!basicAudio) {
+            basicAudio = new Audio("./sounds/laserSmall_000.ogg");
+            basicAudio.volume = 0.5;
+        }
+        basicAudio.currentTime = 0;
+        basicAudio.play().catch(() => {});
     }
 
-    /** Shotgun : plusieurs projectiles avec dispersion */
-    private _shootShotgun(): void {
+    /** burst : plusieurs projectiles avec dispersion */
+    private _shootburst(): void {
         const origin = this._getShootOrigin();
         const baseDir = this._getForwardDirection();
         const spreadAngle = 20; // degrés
         const pellets = 6;
+        const bonus = (this.player as any)["weaponDamageBonus"]?.burst || 0;
 
         for (let i = 0; i < pellets; i++) {
             const dir = this._applySpread(baseDir, spreadAngle);
-            new Bullet(this._scene, origin, dir, Weapon.SHOTGUN_DAMAGE); // dégâts réduits
+            new Bullet(this._scene, origin, dir, Weapon.burst_DAMAGE + bonus); // dégâts réduits
         }
 
+        // Play burst sound
+        if (!burstAudio) {
+            burstAudio = new Audio("./sounds/laserLarge_002.ogg");
+            burstAudio.volume = 0.5;
+        }
+        burstAudio.currentTime = 0;
+        burstAudio.play().catch(() => {});
     }
 
-    /** Sniper : tir unique très précis, dégâts élevés */
-    private _shootSniper(): void {
+    /** focus : tir unique très précis, dégâts élevés */
+    private _shootfocus(): void {
         const origin = this._getShootOrigin();
         const dir = this._getForwardDirection();
-        new Bullet(this._scene, origin, dir, Weapon.SNIPER_DAMAGE);
+        const bonus = (this.player as any)["weaponDamageBonus"]?.focus || 0;
+        new Bullet(this._scene, origin, dir, Weapon.focus_DAMAGE + bonus);
+
+        // Play focus sound
+        if (!focusAudio) {
+            focusAudio = new Audio("./sounds/laserLarge_000.ogg");
+            focusAudio.volume = 0.5;
+        }
+        focusAudio.currentTime = 0;
+        focusAudio.play().catch(() => {});
     }
 
     /** Mitraillette : tir droit mais légèrement imprécis */
-    private _shootAuto(): void {
+    private _shootrapid(): void {
         const origin = this._getShootOrigin();
         const baseDir = this._getForwardDirection();
         const dir = this._applySpread(baseDir, 10); // léger écart
-        new Bullet(this._scene, origin, dir, Weapon.AUTO_DAMAGE);
+        const bonus = (this.player as any)["weaponDamageBonus"]?.rapid || 0;
+        new Bullet(this._scene, origin, dir, Weapon.rapid_DAMAGE + bonus);
+
+        // Play rapid sound
+        if (!rapidAudio) {
+            rapidAudio = new Audio("./sounds/laserSmall_001.ogg");
+            rapidAudio.volume = 0.5;
+        }
+        rapidAudio.currentTime = 0;
+        rapidAudio.play().catch(() => {});
     }
 
     /**
@@ -137,3 +180,8 @@ export class Weapon {
     }
 
 }
+
+let basicAudio: HTMLAudioElement | null = null;
+let rapidAudio: HTMLAudioElement | null = null;
+let focusAudio: HTMLAudioElement | null = null;
+let burstAudio: HTMLAudioElement | null = null;

@@ -15,6 +15,7 @@ export class Enemy extends Entity {
     public readonly _player: Player;
     public _isActive: boolean = false;
     public _aiBehavior: (enemy: Enemy, player: Player) => void;
+    public maxHealth: number;
     public health: number;
     public damage: number;
     public readonly threatLevel: number = 1;
@@ -28,6 +29,7 @@ export class Enemy extends Entity {
         this._isLethalPlayer = true; // Enemies can damage players
         this.damage = damage;
         this.health = health;
+        this.maxHealth = health; // Set max health to initial health
     }
 
     private _initialize(spawnPosition: Vector3): void {
@@ -46,10 +48,10 @@ export class Enemy extends Entity {
 
         this._body?.getCollisionObservable()?.add((event: IPhysicsCollisionEvent) => {
             if (event.type !== "COLLISION_STARTED") return;
-    
+
             const otherTransform = event.collidedAgainst?.transformNode;
             if (!otherTransform) return;
-            
+
             const entity = otherTransform.metadata?.entity;
             if (entity && entity._isLethal && entity._isLethalEnemy) {
                 console.log(`Enemy ${this.name} collided with lethal entity ${entity.name}`);
@@ -61,6 +63,14 @@ export class Enemy extends Entity {
 
     public update(): void {
         if (!this._isActive || !this._body) return;
+
+        // --- Kill enemy if out of bounds ---
+        if (this.position.y < -20) {
+            this.health = 0;
+            this._die();
+            return;
+        }
+
         this._aiBehavior(this, this._player);
     }
 
@@ -92,12 +102,16 @@ export class Enemy extends Entity {
     public takeDamage(amount: number): void {
         this.health -= amount;
         console.log(`${this.name} took ${amount} damage, health now ${this.health}`);
+        // Show enemy HP in HUD
+        if (this._player?.view?.showEnemyHit) {
+            this._player.view.showEnemyHit(this.name, this.health, this.maxHealth ?? 100);
+        }
         if (this.health <= 0) {
             this._die();
         }
     }
 
-    private _die(): void {
+    protected _die(): void {
         this._isActive = false;
         this._mesh.setEnabled(false); // Cache le mesh
         this._body.setLinearVelocity(Vector3.Zero()); // Arrête le mouvement

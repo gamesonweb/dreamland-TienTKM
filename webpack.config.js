@@ -40,6 +40,8 @@ module.exports = {
         new CopyPlugin({
             patterns: [
                 { from: "public/models", to: "models" }, // copies public/models/ to dist/models/
+                { from: "public/sounds", to: "sounds" },
+                { from: "public/icons", to: "icons" }
             ],
         }),
     ],

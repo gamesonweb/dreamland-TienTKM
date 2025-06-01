@@ -213,26 +213,39 @@ export class RoomView {
     }
 
     public dispose(): void {
-    for (let i = 0; i < this.scene.meshes.length; i++) {
-        const mesh = this.scene.meshes[i];
+        // Dispose all meshes that belong to this room (physics and visuals)
+        for (let i = this.scene.meshes.length - 1; i >= 0; i--) {
+            const mesh = this.scene.meshes[i];
 
-        // Check if the mesh corresponds to the room's roof, floor, walls, or doors
-        const isRoomMesh =
-            mesh.name === this.room.roof.name ||
-            mesh.name === this.room.floor.name ||
-            this.room.walls.some(wall => wall.name === mesh.name) ||
-            Object.values(this.room.doors).some(door => door?.name === mesh.name);
+            // Check if the mesh corresponds to the room's roof or floor
+            const isRoofOrFloor =
+                mesh.name === this.room.roof.name ||
+                mesh.name === this.room.floor.name;
 
-        // Also dispose of imported visual meshes (e.g., *_detail, *_visual)
-        const isImportedVisual =
-            mesh.name === `${this.room.floor.name}_detail` ||
-            mesh.name.endsWith("_visual") ||
-            mesh.name.endsWith("_detail");
+            // Check if the mesh is a wall (physics or visual)
+            const isWall =
+                this.room.walls.some(wall =>
+                    mesh.name === wall.name || // visual mesh
+                    mesh.name === `${wall.name}_physics` // physics mesh
+                );
 
-        if (isRoomMesh || isImportedVisual) {
-            mesh.dispose();
-            i--; // Adjust index since the array is modified after disposal
+            // Check if the mesh is a door (physics or visual)
+            const isDoor =
+                Object.values(this.room.doors).some(door =>
+                    door &&
+                    (mesh.name === door.name ||
+                        mesh.name === `${door.name}_visual`)
+                );
+
+            // Also dispose of imported visual meshes (e.g., *_detail, *_visual)
+            const isImportedVisual =
+                mesh.name === `${this.room.floor.name}_detail` ||
+                mesh.name.endsWith("_visual") ||
+                mesh.name.endsWith("_detail");
+
+            if (isRoofOrFloor || isWall || isDoor || isImportedVisual) {
+                mesh.dispose();
+            }
         }
     }
-}
 }

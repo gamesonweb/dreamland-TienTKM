@@ -2,17 +2,17 @@ import { Scene } from "@babylonjs/core";
 import { Item } from "../items";
 import { Player } from "../player";
 
-export class HealingItem extends Item {
-    public readonly iconName: string = "health-potion.png";
+export class MaxManaItem extends Item {
+    public readonly iconName: string = "max-mana.png";
     constructor(scene: Scene) {
-        super("Healing Potion", scene);
+        super("Max Mana Upgrade", scene);
     }
 
     public use(player: Player): boolean {
-        if (player.health >= 100) return false;
-        player.health = Math.min(player.health + 10, 100);
+        player["maxMana"] = (player["maxMana"] || 100) + 10;
+        player["mana"] = Math.min(player["mana"] + 10, player["maxMana"]);
         player.view.showNotification(
-            "Healed!",
+            "Max mana increased!",
             "#4caf50",
             8000 // Show for 8 seconds
         );

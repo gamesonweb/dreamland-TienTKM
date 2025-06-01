@@ -24,6 +24,9 @@ export class RoomModel{
     public static readonly MAX_DOORS = 4;
     public static readonly IS_NORMAL = "is_normal";
     public static readonly IS_BOSS = "is_boss";
+    public static readonly  ROOM_SIZE_MIN = 20;
+    public static readonly  ROOM_SIZE_MAX = 101;
+    public static readonly  ROOM_SIZE_HEIGHT = 3;
     public _itemGiven: boolean = false;
 
 

@@ -26,6 +26,8 @@ import { Player } from "../entities/player/player";
 import { DoorModel } from "../model/doorModel";
 import { Level } from "../level";
 
+let moveAudio: HTMLAudioElement | null = null;
+
 export class PlayerController {
     public scene: Scene;
     public input: InputController;
@@ -59,6 +61,8 @@ export class PlayerController {
 
     private static readonly SHOOT_COOLDOWN_MS = 300;
     private static readonly DAMAGE_COOLDOWN_MS = 2000;
+
+    private _isMoving: boolean = false;
 
     constructor(name: string, player: Player, scene: Scene, room: RoomModel, level: Level) {
         this.scene = scene;
@@ -95,6 +99,7 @@ export class PlayerController {
         root.name = "playerVisual";
         root.parent = collisionMesh;
         root.isPickable = false;
+        root.isVisible = false; // Hide the player model
 
         // Offset the imported mesh so its feet are at the bottom of the collision cylinder
         root.position.y = -PlayerController.BODY_HEIGHT / 2;
@@ -206,8 +211,20 @@ export class PlayerController {
         }
         doorPosition.y += PlayerController.BODY_Y_POSITION;
         if (this.currentRoom.isCompleted()) {
+            // Play door close sound when leaving the room
+            const doorCloseAudio = new Audio("./sounds/doorClose_2.ogg");
+            doorCloseAudio.volume = 0.7;
+            doorCloseAudio.play().catch(() => {});
+
             this._teleportToRoom(targetRoom, this._level, doorPosition);
             this.player._canTeleport = false;
+
+            // Make player invulnerable for 200ms after teleporting
+            this.player._canTakeDamage = false;
+            setTimeout(() => {
+                this.player._canTakeDamage = true;
+            }, 200);
+
             setTimeout(() => {
                 this.player._canTeleport = true;
             }, PlayerController.TELEPORT_COOLDOWN_MS);
@@ -233,6 +250,29 @@ export class PlayerController {
         this._checkIfOnSlope();
 
         const moveDir = new Vector3(this.input.horizontal, 0, this.input.vertical);
+
+        // --- Play muted move sound when moving and grounded ---
+        if (moveDir.length() > 0.1 && this.isGrounded) {
+            if (!this._isMoving) {
+                this._isMoving = true;
+                if (!moveAudio) {
+                    moveAudio = new Audio("./sounds/move.ogg");
+                    moveAudio.loop = true;
+                    moveAudio.volume = 0.08; // Very muted
+                }
+                moveAudio.currentTime = 0;
+                moveAudio.play().catch(() => {});
+            }
+        } else {
+            if (this._isMoving) {
+                this._isMoving = false;
+                if (moveAudio) {
+                    moveAudio.pause();
+                    moveAudio.currentTime = 0;
+                }
+            }
+        }
+
         if (moveDir.length() > 0 && this.player._body?._pluginData) {
             this._applyMovement(moveDir);
         } else if (this.player._body?._pluginData) {

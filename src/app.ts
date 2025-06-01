@@ -12,6 +12,11 @@ import { EnemyManager } from "./entities/enemy/enemyManager";
 import { AdvancedDynamicTexture, Button, Control, Rectangle, TextBlock } from "@babylonjs/gui";
 import { Level } from "./level";
 // Constants
+let unknownTextAudio: HTMLAudioElement | null = null;
+let reverieAudio: HTMLAudioElement | null = null;
+let adventureAudio: HTMLAudioElement | null = null;
+let winAudio: HTMLAudioElement | null = null; // Add this at the top with other audio variables
+
 const CANVAS_ID = "gameCanvas";
 const CAMERA_RADIUS = 10;
 const CAMERA_START_RADIUS_LIMIT = 5;
@@ -45,7 +50,7 @@ enum State {
 }
 
 // App Class
-class App {
+export class App {
     private readonly _canvas: HTMLCanvasElement;
     private readonly _engine: Engine;
     private _scene: Scene;
@@ -173,11 +178,23 @@ class App {
         { speaker: "player", text: "Remember what?" },
         { speaker: "other", text: "Your memories are scattered. Find them." },
         { speaker: "player", text: "This isn't real, this is just a dream..." },
-        { speaker: "player", text: "I need to wake up!" }
+        { speaker: "player", text: "I need to wake up!" },
+        { speaker: "other", text: "I see... You are still not ready, then be careful, monsters are about." },
+        { speaker: "player", text: "M-monsters? What am I going to do...?" },
+        { speaker: "other", text: "You must fight them! This is your dream, your imagination is the greatest weapon." },
+
     ];
     private _cutsceneIndex = 0;
+    private _cutsceneTypingTimeout: number | null = null;
 
     private async _goToCutScene(): Promise<void> {
+        // Play Reverie.ogg on loop until the game starts
+        if (!reverieAudio) {
+            reverieAudio = new Audio("./sounds/Reverie.ogg");
+            reverieAudio.loop = true;
+            reverieAudio.volume = 0.7; // Optional: set volume
+            reverieAudio.play().catch(() => { /* ignore rapidplay errors */ });
+        }
         this._scene?.dispose();
         const scene = new Scene(this._engine);
         scene.clearColor = SCENE_COLOR_START;
@@ -241,11 +258,57 @@ class App {
         const updateDialogue = () => {
             const line = this._cutsceneDialogue[this._cutsceneIndex];
             if (!line) {
+                // Stop sound if playing
+                if (unknownTextAudio) {
+                    unknownTextAudio.pause();
+                    unknownTextAudio.currentTime = 0;
+                }
                 guiMenu.dispose();
                 this._goToGame();
                 return;
             }
-            dialogueText.text = line.text;
+
+            // Typing effect
+            if (this._cutsceneTypingTimeout) {
+                clearTimeout(this._cutsceneTypingTimeout);
+                this._cutsceneTypingTimeout = null;
+            }
+            let currentLength = 0;
+            dialogueText.text = "";
+            const fullText = line.text;
+            const typingSpeed = 18; // ms per character, adjust for speed
+
+            // Play sound if ??? is speaking
+            if (line.speaker === "other") {
+                if (!unknownTextAudio) {
+                    unknownTextAudio = new Audio("./sounds/unknownText.mp3");
+                    unknownTextAudio.loop = true;
+                }
+                unknownTextAudio.currentTime = 0;
+                unknownTextAudio.play();
+            } else {
+                if (unknownTextAudio) {
+                    unknownTextAudio.pause();
+                    unknownTextAudio.currentTime = 0;
+                }
+            }
+
+            const typeNext = () => {
+                if (currentLength <= fullText.length) {
+                    dialogueText.text = fullText.slice(0, currentLength);
+                    currentLength++;
+                    this._cutsceneTypingTimeout = window.setTimeout(typeNext, typingSpeed);
+                } else {
+                    this._cutsceneTypingTimeout = null;
+                    // Stop sound when typing is done
+                    if (line.speaker === "other" && unknownTextAudio) {
+                        unknownTextAudio.pause();
+                        unknownTextAudio.currentTime = 0;
+                    }
+                }
+            };
+            typeNext();
+
             if (line.speaker === "player") {
                 dialogueBox.color = "#2196f3";
                 dialogueBox.thickness = 4;
@@ -265,8 +328,24 @@ class App {
 
         // Advance on click/tap
         dialogueBox.onPointerUpObservable.add(() => {
-            this._cutsceneIndex++;
-            updateDialogue();
+            const line = this._cutsceneDialogue[this._cutsceneIndex];
+            if (!line) return;
+            if (this._cutsceneTypingTimeout) {
+                // Finish typing immediately
+                clearTimeout(this._cutsceneTypingTimeout);
+                this._cutsceneTypingTimeout = null;
+                dialogueText.text = line.text;
+            } else {
+                // Play unknownText sound on click to advance
+
+                unknownTextAudio = new Audio("./sounds/unknownText.mp3");
+                unknownTextAudio.volume = 0.7;
+
+                unknownTextAudio.currentTime = 0;
+                unknownTextAudio.play().catch(() => { });
+                this._cutsceneIndex++;
+                updateDialogue();
+            }
         });
 
         this._scene = scene;
@@ -274,6 +353,20 @@ class App {
     }
 
     private async _goToGame(): Promise<void> {
+        // Stop Reverie.ogg if playing
+        if (reverieAudio) {
+            reverieAudio.pause();
+            reverieAudio.currentTime = 0;
+        }
+        // Play Adventure.ogg for the game
+        if (!adventureAudio) {
+            adventureAudio = new Audio("./sounds/Adventure.ogg");
+            adventureAudio.loop = true;
+            adventureAudio.volume = 0.2;
+        }
+        adventureAudio.currentTime = 0;
+        adventureAudio.play().catch(() => { });
+
         // Dispose previous scene if exists
         this._scene?.dispose();
         // Create a new scene for the game
@@ -289,7 +382,7 @@ class App {
         const level = new Level(scene);
         console.log("Début chargement niveau")
         // const rooms = level.generateSimpleRandomLevel(4, 4, ROOM_SIZE);
-        const rooms = level.generateStage(8, 4, 4, ROOM_SIZE_2);
+        const rooms = level.generateStage(8, 4, 4);
         console.log("Fin chargement");
 
 
@@ -299,6 +392,23 @@ class App {
 
         const enemyManager = new EnemyManager(scene, player);
         level.setEnemyManager(enemyManager);
+
+        // Show instructions using PlayerView
+        player.view.showNotification(
+            "Instructions: WASD or ZQSD to move, Space to jump, Left Click to shoot, Number Keys to switch weapons, Tab to open Inventory.",
+            "#2196f3",
+            8000 // Show for 8 seconds
+        );
+        player.view.showNotification(
+            "Weapons other than basic uses mana.",
+            "#2196f3",
+            8000 // Show for 8 seconds
+        );
+        player.view.showNotification(
+            "You can not aim while shooting. Clear all rooms to win.",
+            "#2196f3",
+            8000 // Show for 8 seconds
+        );
 
         // Track game start time
         this._gameStartTime = Date.now();
@@ -330,10 +440,17 @@ class App {
         };
 
         this._engine.runRenderLoop(() => {
+
             scene.render();
-            player.update();
-            enemyManager.updateEnemies();
-            checkWin();
+            if (this._state === State.GAME) {
+                player.update();
+                enemyManager.updateEnemies();
+            }
+            if (this._state !== State.WIN) {
+                checkWin();
+            }
+
+
         });
 
         this._scene = scene;
@@ -346,6 +463,14 @@ class App {
         if (this._winOverlay) {
             this._winOverlay.dispose();
         }
+
+        // Play win.ogg audio
+        if (!winAudio) {
+            winAudio = new Audio("./sounds/win.ogg");
+            winAudio.volume = 0.7;
+        }
+        winAudio.currentTime = 0;
+        winAudio.play().catch(() => { });
 
         this._winOverlay = AdvancedDynamicTexture.CreateFullscreenUI("WinUI");
 
@@ -371,6 +496,17 @@ class App {
         winText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
         popup.addControl(winText);
 
+        // Huge YOU WIN! text
+        const youWinText = new TextBlock();
+        youWinText.text = "YOU WIN!";
+        youWinText.color = "#ffd700";
+        youWinText.fontSize = 100;
+        youWinText.height = "120px";
+        youWinText.top = "70px";
+        youWinText.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        youWinText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+        popup.addControl(youWinText);
+
         // Completion time
         const completionTime = ((Date.now() - this._gameStartTime) / 1000);
         const minutes = Math.floor(completionTime / 60);
@@ -380,8 +516,8 @@ class App {
         timeText.color = "white";
         timeText.fontSize = 28;
         timeText.height = "50px";
-        timeText.top = "70px";
-        timeText.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        timeText.top = "170px";
+        timeText.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         timeText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
         popup.addControl(timeText);
 
@@ -391,9 +527,9 @@ class App {
         storyText.color = "#fff";
         storyText.fontSize = 28;
         storyText.height = "80px";
-        storyText.top = "130px";
+        storyText.top = "230px";
         storyText.textWrapping = true;
-        storyText.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        storyText.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         storyText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
         popup.addControl(storyText);
 
