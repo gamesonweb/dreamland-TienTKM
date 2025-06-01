@@ -88,26 +88,9 @@ export class PlayerController {
         // Parent the collision mesh to the root node
         collisionMesh.parent = playerRoot;
 
-        // Import the player model
-        const result = await SceneLoader.ImportMeshAsync(
-            null,
-            "./models/",
-            "character-animated.glb",
-            this.scene
-        );
-        const root = result.meshes[0];
-        root.name = "playerVisual";
-        root.parent = collisionMesh;
-        root.isPickable = false;
-        root.isVisible = false; // Hide the player model
-
-        // Offset the imported mesh so its feet are at the bottom of the collision cylinder
-        root.position.y = -PlayerController.BODY_HEIGHT / 2;
-
-        // Disable picking for all child meshes
-        root.getChildMeshes().forEach((m) => {
-            m.isPickable = false;
-        });
+        // --- REMOVE PLAYER MODEL ---
+        // (No SceneLoader.ImportMeshAsync for character-animated.glb)
+        // (No mesh parenting or animation setup)
 
         // Attach the collision mesh to the player entity
         this.player._mesh = collisionMesh;
@@ -125,9 +108,9 @@ export class PlayerController {
         this.player._body.disablePreStep = false;
         this.player._body.transformNode.position.y = 0; // Start at ground level
 
-        // Store animation groups
-        this.assets = { mesh: root };
-        this.animationGroups = result.animationGroups;
+        // Remove animationGroups and assets setup
+        this.assets = null;
+        this.animationGroups = [];
     }
 
     private _setupCollisionListeners(): void {
