@@ -5,6 +5,7 @@
 - Chtitah Sami
 - Chevalier Malvin
 
+M2 Miage Université de Rennes
 ## Lien vers le jeu
 https://tientkm.github.io/Yumemi-Memories/
 
